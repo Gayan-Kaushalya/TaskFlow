@@ -49,11 +49,11 @@ def create_task(task: TaskCreate):
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 """
-                INSERT INTO tasks (title, description, completed)
-                VALUES (%s, %s, %s)
-                RETURNING id, title, description, completed, created_at;
+                INSERT INTO tasks (title, description, completed, priority)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, title, description, completed, priority, created_at;
                 """,
-                (task.title, task.description, task.completed)
+                (task.title, task.description, task.completed, task.priority.value)
             )
             created = cur.fetchone()
             conn.commit()
@@ -64,7 +64,7 @@ def create_task(task: TaskCreate):
 def list_tasks():
     with pool.connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute("SELECT id, title, description, completed, \
+            cur.execute("SELECT id, title, description, completed, priority, \
                         created_at FROM tasks ORDER BY id ASC;")
             return cur.fetchall()
 
@@ -72,7 +72,7 @@ def list_tasks():
 def get_task(task_id: int):
     with pool.connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute("SELECT id, title, description, completed, \
+            cur.execute("SELECT id, title, description, completed, priority, \
                         created_at FROM tasks WHERE id = %s;", (task_id,))
             task = cur.fetchone()
             if not task:
@@ -84,7 +84,7 @@ def update_task(task_id: int, task: TaskUpdate):
     with pool.connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("SELECT id, title, description, \
-                completed FROM tasks WHERE id = %s;", (task_id,))
+                completed, priority FROM tasks WHERE id = %s;", (task_id,))
             existing = cur.fetchone()
             if not existing:
                 raise HTTPException(status_code=404, detail="Task not found")
@@ -92,15 +92,16 @@ def update_task(task_id: int, task: TaskUpdate):
             new_title = task.title if task.title is not None else existing["title"]
             new_description = task.description if task.description is not None else existing["description"]
             new_completed = task.completed if task.completed is not None else existing["completed"]
+            new_priority = task.priority.value if task.priority is not None else existing["priority"]
 
             cur.execute(
                 """
                 UPDATE tasks
-                SET title = %s, description = %s, completed = %s
+                SET title = %s, description = %s, completed = %s, priority = %s
                 WHERE id = %s
-                RETURNING id, title, description, completed, created_at;
+                RETURNING id, title, description, completed, priority, created_at;
                 """,
-                (new_title, new_description, new_completed, task_id)
+                (new_title, new_description, new_completed, new_priority, task_id)
             )
             updated = cur.fetchone()
             conn.commit()

@@ -14,6 +14,7 @@ def init_db():
                     title VARCHAR(255) NOT NULL,
                     description TEXT,
                     completed BOOLEAN DEFAULT FALSE,
+                    priority VARCHAR(6) NOT NULL DEFAULT 'MEDIUM',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
