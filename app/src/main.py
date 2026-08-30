@@ -40,7 +40,10 @@ def health_check():
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
-        raise HTTPException(status_code=503, detail="Database unreachable") from e
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "error": "Database unreachable"},
+        )
 
 
 @app.post("/tasks", response_model=TaskResponse, status_code=201)

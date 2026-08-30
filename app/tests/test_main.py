@@ -9,7 +9,7 @@ with patch("app.src.database.ConnectionPool"):
 client = TestClient(app)
 
 @pytest.fixture
-def mock_database():
+def mock_db():
     with patch("app.src.main.pool") as mock_pool:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
