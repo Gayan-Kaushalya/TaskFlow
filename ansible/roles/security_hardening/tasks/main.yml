@@ -1,9 +1,10 @@
 ---
 - name: Ensure deployer SSH public key is permanently installed
-  ansible.posix.authorized_key:
+  ansible.builtin.authorized_key:
     user: ec2-user
     state: present
-    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub', errors='ignore') | default('') }}"
+  when: lookup('file', '~/.ssh/id_rsa.pub', errors='ignore') != ''
 
 - name: Ensure SSH password authentication is disabled
   ansible.builtin.lineinfile:
