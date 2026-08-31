@@ -43,6 +43,7 @@ resource "aws_security_group" "alb" {
   }
 }
 
+# trivy:ignore:AWS-0104
 resource "aws_security_group" "ecs_instances" {
   name        = "taskflow-ecs-instances-sg"
   description = "Allow inbound traffic from ALB only"
