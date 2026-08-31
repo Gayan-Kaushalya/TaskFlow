@@ -225,9 +225,12 @@ __marimo__/
 *.tfstate
 *.tfstate.*
 *.tfplan
+**/tfplan
 *.tfplan.*
 .terraform.lock.hcl
 *.tfvars
 
 # Allow example template files
 !*.tfvars.example
+
+**/scaler.zip
