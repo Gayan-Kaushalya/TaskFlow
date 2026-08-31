@@ -44,6 +44,7 @@ jobs:
       - name: Ansible Lint
         uses: ansible/ansible-lint@main
         with:
+          requirements_file: "ansible/requirements.yml"
           args: "ansible/site.yml"
 
   security:
