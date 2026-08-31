@@ -88,6 +88,8 @@ jobs:
           pip install pytest pytest-cov httpx
 
       - name: Run Pytest with 70% Coverage Gate
+        env:
+          PYTHONPATH: .
         run: |
           pytest app/tests/ -v --cov=app/src --cov-report=term-missing --cov-fail-under=70
 

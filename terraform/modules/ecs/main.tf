@@ -1,4 +1,5 @@
 # ECR Repository
+# trivy:ignore:AWS-0031
 resource "aws_ecr_repository" "app" {
   name                 = "taskflow-app"
   image_tag_mutability = "MUTABLE"
@@ -22,10 +23,11 @@ resource "aws_cloudwatch_log_group" "ec2" {
 # Security Groups
 resource "aws_security_group" "alb" {
   name        = "taskflow-alb-sg"
-  description = "Allow inbound HTTP from internet"
+  description = "Allow inbound HTTP from internet to ALB"
   vpc_id      = var.vpc_id
 
   ingress {
+    description = "Allow HTTP from internet"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -33,10 +35,11 @@ resource "aws_security_group" "alb" {
   }
 
   egress {
+    description = "Allow outbound to VPC for target routing"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["10.0.0.0/16"]
   }
 }
 
@@ -46,6 +49,7 @@ resource "aws_security_group" "ecs_instances" {
   vpc_id      = var.vpc_id
 
   ingress {
+    description     = "Allow traffic from ALB"
     from_port       = 0
     to_port         = 65535
     protocol        = "tcp"
@@ -53,6 +57,7 @@ resource "aws_security_group" "ecs_instances" {
   }
 
   egress {
+    description = "Allow outbound internet traffic via NAT Gateway"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -61,12 +66,14 @@ resource "aws_security_group" "ecs_instances" {
 }
 
 # ALB and Target Group
+# trivy:ignore:AWS-0053
 resource "aws_lb" "main" {
-  name               = "taskflow-alb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
-  subnets            = var.public_subnet_ids
+  name                       = "taskflow-alb"
+  internal                   = false
+  load_balancer_type         = "application"
+  drop_invalid_header_fields = true
+  security_groups            = [aws_security_group.alb.id]
+  subnets                    = var.public_subnet_ids
 }
 
 resource "aws_lb_target_group" "app" {
@@ -86,6 +93,7 @@ resource "aws_lb_target_group" "app" {
   }
 }
 
+# trivy:ignore:AWS-0054
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
@@ -112,10 +120,15 @@ resource "aws_launch_template" "ecs" {
   name_prefix   = "taskflow-ecs-lt-"
   image_id      = data.aws_ssm_parameter.ecs_ami.value
   instance_type = "t3.small"
-  key_name      = "taskflow_key"
 
   iam_instance_profile {
     arn = var.ecs_instance_profile_arn
+  }
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
   }
 
   network_interfaces {

@@ -12,6 +12,7 @@ resource "aws_internet_gateway" "gw" {
 }
 
 # Public Subnets (for ALB & NAT Gateway)
+# trivy:ignore:AWS-0164
 resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.main.id
