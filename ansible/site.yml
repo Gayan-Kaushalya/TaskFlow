@@ -1,0 +1,9 @@
+---
+- name: Configure and Harden ECS Host Instances
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - security_hardening
+    - ecs_node

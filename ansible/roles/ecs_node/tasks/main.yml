@@ -1,0 +1,17 @@
+---
+- name: Ensure CloudWatch agent is installed
+  ansible.builtin.dnf:
+    name: amazon-cloudwatch-agent
+    state: present
+
+- name: Ensure Docker daemon service is running and enabled
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Ensure ECS container agent is running and enabled
+  ansible.builtin.systemd:
+    name: ecs
+    state: started
+    enabled: true
