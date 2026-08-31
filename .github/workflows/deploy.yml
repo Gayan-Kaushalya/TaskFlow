@@ -112,17 +112,38 @@ jobs:
           echo "Waiting 30 seconds for EC2 instances to register with AWS SSM..."
           sleep 30
 
+      - name: Set up SSH Key & Authorize via EC2 Instance Connect
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+
+          INSTANCE_IDS=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=taskflow-ecs-node" "Name=instance-state-name,Values=running" \
+            --query "Reservations[].Instances[].InstanceId" --output text)
+
+          for INSTANCE_ID in $INSTANCE_IDS; do
+            AZ=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].Placement.AvailabilityZone" --output text)
+            echo "Authorizing SSH key for $INSTANCE_ID in $AZ..."
+            aws ec2-instance-connect send-ssh-public-key \
+              --instance-id "$INSTANCE_ID" \
+              --instance-os-user ec2-user \
+              --availability-zone "$AZ" \
+              --ssh-public-key file://~/.ssh/id_rsa.pub
+          done
+
       - name: Run Ansible Playbook (Initial Execution)
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
         run: |
-          ansible-playbook -i ansible/inventory/aws_ec2.yml ansible/site.yml
+          ansible-playbook -i ansible/inventory/aws_ec2.yml ansible/site.yml --private-key ~/.ssh/id_rsa
 
       - name: Run Ansible Playbook (Idempotency Check - Expect changed=0)
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
         run: |
-          ansible-playbook -i ansible/inventory/aws_ec2.yml ansible/site.yml
+          ansible-playbook -i ansible/inventory/aws_ec2.yml ansible/site.yml --private-key ~/.ssh/id_rsa
 
   deploy:
     name: ECS Service Deployment
