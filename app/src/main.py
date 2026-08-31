@@ -12,8 +12,9 @@ app = FastAPI(
     title="TaskFlow",
     version="1.0",
     description="Task management service",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -22,6 +23,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"error": "Validation Error", "details": exc.errors()},
     )
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -56,12 +58,13 @@ def create_task(task: TaskCreate):
                 VALUES (%s, %s, %s, %s)
                 RETURNING id, title, description, completed, priority, created_at;
                 """,
-                (task.title, task.description, task.completed, task.priority.value)
+                (task.title, task.description, task.completed, task.priority.value),
             )
             created = cur.fetchone()
             conn.commit()
             logger.info(f"Task created with ID: {created['id']}")
             return created
+
 
 @app.get("/tasks", response_model=List[TaskResponse])
 def list_tasks():
@@ -70,6 +73,7 @@ def list_tasks():
             cur.execute("SELECT id, title, description, completed, priority, \
                         created_at FROM tasks ORDER BY id ASC;")
             return cur.fetchall()
+
 
 @app.get("/tasks/{task_id}", response_model=TaskResponse)
 def get_task(task_id: int):
@@ -82,6 +86,7 @@ def get_task(task_id: int):
                 raise HTTPException(status_code=404, detail="Task not found")
             return task
 
+
 @app.put("/tasks/{task_id}", response_model=TaskResponse)
 def update_task(task_id: int, task: TaskUpdate):
     with pool.connection() as conn:
@@ -92,12 +97,12 @@ def update_task(task_id: int, task: TaskUpdate):
             if not existing:
                 raise HTTPException(status_code=404, detail="Task not found")
 
-            new_title = (
-                task.title if task.title is not None else existing["title"]
-            )
+            new_title = task.title if task.title is not None else existing["title"]
 
             new_description = (
-                task.description if task.description is not None else existing["description"]
+                task.description
+                if task.description is not None
+                else existing["description"]
             )
 
             new_completed = (
@@ -105,7 +110,9 @@ def update_task(task_id: int, task: TaskUpdate):
             )
 
             new_priority = (
-                task.priority.value if task.priority is not None else existing["priority"]
+                task.priority.value
+                if task.priority is not None
+                else existing["priority"]
             )
 
             cur.execute(
@@ -115,12 +122,13 @@ def update_task(task_id: int, task: TaskUpdate):
                 WHERE id = %s
                 RETURNING id, title, description, completed, priority, created_at;
                 """,
-                (new_title, new_description, new_completed, new_priority, task_id)
+                (new_title, new_description, new_completed, new_priority, task_id),
             )
             updated = cur.fetchone()
             conn.commit()
             logger.info(f"Task updated with ID: {task_id}")
             return updated
+
 
 @app.delete("/tasks/{task_id}", status_code=204)
 def delete_task(task_id: int):

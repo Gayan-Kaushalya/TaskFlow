@@ -3,12 +3,8 @@ from fastapi import FastAPI
 from psycopg_pool import ConnectionPool
 from .config import DATABASE_URL, logger
 
-pool = ConnectionPool(
-    conninfo=DATABASE_URL,
-    min_size=1,
-    max_size=10,
-    open=False
-)
+pool = ConnectionPool(conninfo=DATABASE_URL, min_size=1, max_size=10, open=False)
+
 
 def init_db():
     with pool.connection() as conn:
@@ -25,6 +21,7 @@ def init_db():
             """)
             conn.commit()
     logger.info("Database initialized successfully")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
