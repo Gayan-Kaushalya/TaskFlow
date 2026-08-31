@@ -1,0 +1,158 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
+      image_tag: ${{ steps.vars.outputs.sha_short }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Short SHA Output
+        id: vars
+        run: echo "sha_short=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: taskflow-app
+          IMAGE_TAG: ${{ steps.vars.outputs.sha_short }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest app/
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+  terraform-apply:
+    name: Terraform Apply
+    needs: [build-and-push]
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      alb_dns_name: ${{ steps.tf-outputs.outputs.alb_dns }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+
+      - name: Terraform Init & Apply
+        working-directory: terraform/envs/prod
+        run: |
+          terraform init
+          terraform apply -auto-approve -var="app_image=${{ needs.build-and-push.outputs.ecr_registry }}/taskflow-app:${{ needs.build-and-push.outputs.image_tag }}"
+
+      - name: Get Terraform Outputs
+        id: tf-outputs
+        working-directory: terraform/envs/prod
+        run: |
+          echo "alb_dns=$(terraform output -raw alb_dns_name)" >> $GITHUB_OUTPUT
+
+  configure:
+    name: Configure Hosts (Ansible)
+    needs: [terraform-apply]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Set up Python & Ansible
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible & AWS Collection
+        run: |
+          pip install ansible boto3 botocore
+          ansible-galaxy collection install amazon.aws community.general ansible.posix
+
+      - name: Set up SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Run Ansible Playbook (Initial Execution)
+        run: |
+          ansible-playbook -i ansible/inventory/aws_ec2.yml ansible/site.yml
+
+      - name: Run Ansible Playbook (Idempotency Check - Expect changed=0)
+        run: |
+          ansible-playbook -i ansible/inventory/aws_ec2.yml ansible/site.yml
+
+  deploy:
+    name: ECS Service Deployment
+    needs: [configure]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Force ECS Service New Deployment
+        run: |
+          aws ecs update-service --cluster taskflow-cluster --service taskflow-service --force-new-deployment
+          aws ecs wait services-stable --cluster taskflow-cluster --services taskflow-service
+
+  smoke-test:
+    name: Smoke Test ALB /health
+    needs: [terraform-apply, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Live Health Endpoint
+        run: |
+          ALB_URL="http://${{ needs.terraform-apply.outputs.alb_dns_name }}/health"
+          echo "Testing health check at $ALB_URL"
+          for i in {1..12}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$ALB_URL" || true)
+            if [ "$STATUS" -eq 200 ]; then
+              echo "Smoke test PASSED with HTTP 200"
+              exit 0
+            fi
+            echo "Attempt $i: Received HTTP $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Smoke test FAILED - ALB did not return HTTP 200 in time"
+          exit 1
