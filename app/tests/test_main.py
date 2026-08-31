@@ -44,7 +44,7 @@ def test_create_task_validation_error():
 
 def test_list_tasks(mock_db):
     mock_db.fetchall.return_value = [
-        {"id": 1, "title": "Task 1", "description": "Desc 1", "completed": False,
+        {"id": 1, "title": "Task 1", "description": "Description 1", "completed": False,
             "priority": "MEDIUM", "created_at": datetime.now(timezone.utc).isoformat()}
     ]
     response = client.get("/tasks")
@@ -60,7 +60,8 @@ def test_get_task_not_found(mock_db):
 
 def test_update_task(mock_db):
     mock_db.fetchone.side_effect = [
-        {"id": 1, "title": "Old", "description": "Old Description", "completed": False, "priority": "LOW"},
+        {"id": 1, "title": "Old", "description": "Old Description", "completed": False,
+            "priority": "LOW"},
         {"id": 1, "title": "New", "description": "Old Description", "completed": True,
             "priority": "HIGH", "created_at": datetime.now(timezone.utc).isoformat()}
     ]

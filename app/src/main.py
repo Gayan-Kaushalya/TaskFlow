@@ -92,10 +92,21 @@ def update_task(task_id: int, task: TaskUpdate):
             if not existing:
                 raise HTTPException(status_code=404, detail="Task not found")
 
-            new_title = task.title if task.title is not None else existing["title"]
-            new_description = task.description if task.description is not None else existing["description"]
-            new_completed = task.completed if task.completed is not None else existing["completed"]
-            new_priority = task.priority.value if task.priority is not None else existing["priority"]
+            new_title = (
+                task.title if task.title is not None else existing["title"]
+            )
+
+            new_description = (
+                task.description if task.description is not None else existing["description"]
+            )
+
+            new_completed = (
+                task.completed if task.completed is not None else existing["completed"]
+            )
+
+            new_priority = (
+                task.priority.value if task.priority is not None else existing["priority"]
+            )
 
             cur.execute(
                 """
