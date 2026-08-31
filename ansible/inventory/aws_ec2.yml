@@ -8,11 +8,10 @@ filters:
   "tag:Name":
     - taskflow-ecs-node
 
-keyed_groups:
-  - key: tags.Name
-    prefix: tag
-
 hostnames:
-  - private-ip-address
-  - ip-address
-  - dns-name
+  - instance-id
+
+compose:
+  ansible_connection: '"community.aws.aws_ssm"'
+  ansible_aws_ssm_region: '"us-east-1"'
+  ansible_aws_ssm_bucket_name: '""'
