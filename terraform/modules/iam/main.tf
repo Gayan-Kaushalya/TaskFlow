@@ -1,4 +1,4 @@
-# 1. EC2 Instance Role (for ECS-optimized EC2 hosts)
+# EC2 Instance Role (for ECS-optimized EC2 hosts)
 resource "aws_iam_role" "ecs_instance_role" {
   name = "taskflow-ecs-instance-role"
 
@@ -32,7 +32,7 @@ resource "aws_iam_instance_profile" "ecs_instance_profile" {
   role = aws_iam_role.ecs_instance_role.name
 }
 
-# 2. ECS Task Execution Role (Pull image from ECR, fetch Secrets Manager)
+# ECS Task Execution Role (Pull image from ECR, fetch Secrets Manager)
 resource "aws_iam_role" "ecs_execution_role" {
   name = "taskflow-ecs-execution-role"
 
@@ -69,7 +69,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_secrets" {
   policy_arn = aws_iam_policy.secrets_read.arn
 }
 
-# 3. ECS Task Role (Permissions for the app itself at runtime)
+# ECS Task Role (Permissions for the app itself at runtime)
 resource "aws_iam_role" "ecs_task_role" {
   name = "taskflow-ecs-task-role"
 

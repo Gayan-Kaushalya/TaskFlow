@@ -1,4 +1,4 @@
-# 1. ECR Repository
+# ECR Repository
 resource "aws_ecr_repository" "app" {
   name                 = "taskflow-app"
   image_tag_mutability = "MUTABLE"
@@ -8,7 +8,7 @@ resource "aws_ecr_repository" "app" {
   }
 }
 
-# 2. CloudWatch Log Groups
+# CloudWatch Log Groups
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/taskflow"
   retention_in_days = 7
@@ -19,7 +19,7 @@ resource "aws_cloudwatch_log_group" "ec2" {
   retention_in_days = 7
 }
 
-# 3. Security Groups
+# Security Groups
 resource "aws_security_group" "alb" {
   name        = "taskflow-alb-sg"
   description = "Allow inbound HTTP from internet"
@@ -60,7 +60,7 @@ resource "aws_security_group" "ecs_instances" {
   }
 }
 
-# 4. ALB and Target Group
+# ALB and Target Group
 resource "aws_lb" "main" {
   name               = "taskflow-alb"
   internal           = false
@@ -97,21 +97,22 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# 5. ECS Cluster
+# ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "taskflow-cluster"
 }
 
-# 6. Fetch Latest Amazon Linux 2023 ECS Optimized AMI
+# Fetch Latest Amazon Linux 2023 ECS Optimized AMI
 data "aws_ssm_parameter" "ecs_ami" {
   name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id"
 }
 
-# 7. Launch Template & Auto Scaling Group
+# Launch Template & Auto Scaling Group
 resource "aws_launch_template" "ecs" {
   name_prefix   = "taskflow-ecs-lt-"
   image_id      = data.aws_ssm_parameter.ecs_ami.value
   instance_type = "t3.small"
+  key_name      = "taskflow_key"
 
   iam_instance_profile {
     arn = var.ecs_instance_profile_arn
@@ -162,7 +163,7 @@ resource "aws_autoscaling_group" "ecs" {
   }
 }
 
-# 8. ECS Task Definition & Service
+# ECS Task Definition & Service
 resource "aws_ecs_task_definition" "app" {
   family                   = "taskflow-task"
   network_mode             = "awsvpc"
