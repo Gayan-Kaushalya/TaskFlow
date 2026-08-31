@@ -33,18 +33,18 @@ resource "random_password" "db_password" {
 }
 
 resource "aws_db_instance" "postgres" {
-  identifier             = "taskflow-postgres"
-  engine                 = "postgres"
-  engine_version         = "15"
+  identifier                 = "taskflow-postgres"
+  engine                     = "postgres"
+  engine_version             = "15"
   auto_minor_version_upgrade = true
-  instance_class         = "db.t4g.micro"
-  allocated_storage      = 20
-  db_name                = "taskflow"
-  username               = "taskflow_admin"
-  password               = random_password.db_password.result
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  vpc_security_group_ids = [aws_security_group.rds.id]
-  skip_final_snapshot    = true
+  instance_class             = "db.t4g.micro"
+  allocated_storage          = 20
+  db_name                    = "taskflow"
+  username                   = "taskflow_admin"
+  password                   = random_password.db_password.result
+  db_subnet_group_name       = aws_db_subnet_group.main.name
+  vpc_security_group_ids     = [aws_security_group.rds.id]
+  skip_final_snapshot        = true
 }
 
 # Store database connection URL in Secrets Manager
