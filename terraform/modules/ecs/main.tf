@@ -23,7 +23,7 @@ resource "aws_cloudwatch_log_group" "ec2" {
 # Security Groups
 resource "aws_security_group" "alb" {
   name        = "taskflow-alb-sg"
-  description = "Allow inbound HTTP from internet to ALB"
+  description = "Allow inbound HTTP from internet"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -40,6 +40,10 @@ resource "aws_security_group" "alb" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["10.0.0.0/16"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
