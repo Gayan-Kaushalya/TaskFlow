@@ -1,0 +1,444 @@
+openapi: 3.0.0
+info:
+  title: TaskFlow API
+  description: >-
+    A containerised task-management REST API deployed on AWS ECS (EC2 launch type).
+    This API provides full CRUD operations for managing tasks with priority levels
+    and completion status tracking.
+  version: 1.0.0
+  contact:
+    name: Platform Engineering Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://{alb_dns_name}
+    description: Production ALB endpoint
+    variables:
+      alb_dns_name:
+        description: Application Load Balancer DNS name
+        default: taskflow-alb-prod.us-east-1.elb.amazonaws.com
+
+tags:
+  - name: Health
+    description: Service health and connectivity checks
+  - name: Tasks
+    description: Task management endpoints (CRUD operations)
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: >-
+        Verify that the TaskFlow API service is running and the database connection
+        is active. Returns status and database connectivity information.
+      operationId: health_check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy and database is connected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                database: connected
+        '503':
+          description: Service unhealthy - database connection failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: unhealthy
+                error: Database unreachable
+
+  /tasks:
+    post:
+      summary: Create a new task
+      description: >-
+        Create a new task with the provided details. Title is required.
+        Priority defaults to MEDIUM if not specified. Returns the created task
+        with an assigned ID and creation timestamp.
+      operationId: create_task
+      tags:
+        - Tasks
+      requestBody:
+        description: Task creation payload
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+            examples:
+              minimal:
+                summary: Minimal task creation
+                value:
+                  title: Buy groceries
+              full:
+                summary: Full task creation with all fields
+                value:
+                  title: Complete project documentation
+                  description: Write architecture diagrams and runbook
+                  completed: false
+                  priority: HIGH
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                id: 1
+                title: Complete project documentation
+                description: Write architecture diagrams and runbook
+                completed: false
+                priority: HIGH
+                created_at: '2026-09-01T10:30:00Z'
+        '422':
+          description: Validation error - invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+
+    get:
+      summary: List all tasks
+      description: >-
+        Retrieve all tasks from the database, ordered by ID in ascending order.
+        Returns an empty array if no tasks exist.
+      operationId: list_tasks
+      tags:
+        - Tasks
+      responses:
+        '200':
+          description: List of all tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskResponse'
+              example:
+                - id: 1
+                  title: Complete project documentation
+                  description: Write architecture diagrams and runbook
+                  completed: false
+                  priority: HIGH
+                  created_at: '2026-09-01T10:30:00Z'
+                - id: 2
+                  title: Deploy to production
+                  description: null
+                  completed: false
+                  priority: MEDIUM
+                  created_at: '2026-09-01T11:00:00Z'
+
+  /tasks/{task_id}:
+    get:
+      summary: Get a specific task
+      description: >-
+        Retrieve a single task by its ID. Returns the complete task details
+        including creation timestamp.
+      operationId: get_task
+      tags:
+        - Tasks
+      parameters:
+        - name: task_id
+          in: path
+          description: The unique identifier of the task
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Task found and returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                id: 1
+                title: Complete project documentation
+                description: Write architecture diagrams and runbook
+                completed: false
+                priority: HIGH
+                created_at: '2026-09-01T10:30:00Z'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Task not found
+
+    put:
+      summary: Update an existing task
+      description: >-
+        Partially or fully update a task by its ID. Only fields provided in the
+        request body are updated; omitted fields retain their current values.
+        Returns the updated task with the same creation timestamp.
+      operationId: update_task
+      tags:
+        - Tasks
+      parameters:
+        - name: task_id
+          in: path
+          description: The unique identifier of the task to update
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        description: Task update payload (all fields optional)
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+            examples:
+              mark_complete:
+                summary: Mark task as complete
+                value:
+                  completed: true
+              update_priority:
+                summary: Change task priority
+                value:
+                  priority: HIGH
+              full_update:
+                summary: Update multiple fields
+                value:
+                  title: Updated title
+                  description: Updated description
+                  completed: true
+                  priority: LOW
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                id: 1
+                title: Updated project documentation
+                description: Write detailed architecture diagrams
+                completed: true
+                priority: LOW
+                created_at: '2026-09-01T10:30:00Z'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Task not found
+        '422':
+          description: Validation error - invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+
+    delete:
+      summary: Delete a task
+      description: >-
+        Permanently delete a task by its ID. Returns a 204 No Content response
+        on success. Subsequent requests to this task will return 404.
+      operationId: delete_task
+      tags:
+        - Tasks
+      parameters:
+        - name: task_id
+          in: path
+          description: The unique identifier of the task to delete
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '204':
+          description: Task deleted successfully (no content returned)
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Task not found
+
+components:
+  schemas:
+    TaskPriority:
+      type: string
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+      description: Priority level for a task
+      example: HIGH
+
+    TaskCreate:
+      type: object
+      description: Schema for creating a new task
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Task title (required, 1-255 characters)
+          example: Complete project documentation
+        description:
+          type: string
+          nullable: true
+          description: Optional task description
+          example: Write architecture diagrams and runbook
+        completed:
+          type: boolean
+          default: false
+          description: Whether the task is completed
+          example: false
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+          default: MEDIUM
+          description: Priority level (defaults to MEDIUM)
+
+    TaskUpdate:
+      type: object
+      description: Schema for updating an existing task (all fields optional)
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Updated task title (1-255 characters)
+          example: Updated project documentation
+        description:
+          type: string
+          nullable: true
+          description: Updated task description
+          example: Write comprehensive architectural documentation
+        completed:
+          type: boolean
+          description: Updated completion status
+          example: true
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+          description: Updated priority level
+
+    TaskResponse:
+      type: object
+      description: Complete task object as returned by the API
+      required:
+        - id
+        - title
+        - completed
+        - priority
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: Unique task identifier (auto-assigned by database)
+          example: 1
+        title:
+          type: string
+          description: Task title
+          example: Complete project documentation
+        description:
+          type: string
+          nullable: true
+          description: Task description (can be null)
+          example: Write architecture diagrams and runbook
+        completed:
+          type: boolean
+          description: Completion status
+          example: false
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the task was created
+          example: '2026-09-01T10:30:00Z'
+
+    HealthResponse:
+      type: object
+      description: Health check response
+      required:
+        - status
+        - database
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - unhealthy
+          description: Service health status
+          example: healthy
+        database:
+          type: string
+          description: Database connection status
+          example: connected
+
+    ErrorResponse:
+      type: object
+      description: Standard error response
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Task not found
+
+    ValidationErrorResponse:
+      type: object
+      description: Validation error response
+      required:
+        - error
+        - details
+      properties:
+        error:
+          type: string
+          enum:
+            - Validation Error
+          example: Validation Error
+        details:
+          type: array
+          description: Array of validation error details
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+                description: Location of the error (field path)
+                example:
+                  - body
+                  - title
+              msg:
+                type: string
+                description: Error message
+                example: ensure this value has at least 1 character
+              type:
+                type: string
+                description: Error type
+                example: value_error.string.too_short
+
+x-internal-notes:
+  - description: Database driver - psycopg 3 with connection pooling
+  - description: Python version - 3.11+
+  - description: Async framework - FastAPI with Uvicorn
+  - description: Database - PostgreSQL 15
+  - description: Deployment - AWS ECS on EC2 behind Application Load Balancer

@@ -116,6 +116,113 @@ The API is now available at `http://localhost:8000`. The health check endpoint i
 
 **Interactive API documentation:** FastAPI auto-generates Swagger UI at `http://localhost:8000/docs`.
 
+---
+
+## API Documentation & Specifications
+
+### Swagger UI (Interactive Documentation)
+
+Once the application is running locally, access the interactive API documentation at:
+
+```
+http://localhost:8000/docs
+```
+
+Swagger UI provides:
+- **Endpoint browser** - Browse all available API routes
+- **Interactive testing** - Execute API calls directly from the documentation
+- **Request/response examples** - See request schemas and response structures
+- **Parameter validation** - View required/optional fields and validation rules
+
+### ReDoc (Alternative API Documentation)
+
+For a cleaner, reader-friendly API documentation view:
+
+```
+http://localhost:8000/redoc
+```
+
+### OpenAPI Specification
+
+The raw OpenAPI/Swagger specification is available in two formats:
+
+**Live JSON endpoint:**
+```
+http://localhost:8000/openapi.json
+```
+
+**YAML specification file** (in repository):
+```
+docs/openapi.yml
+```
+
+The OpenAPI specification can be:
+- Imported into tools like **Postman** or **Insomnia** for advanced testing
+- Integrated with CI/CD pipelines for API contract testing
+- Used to generate client libraries in multiple languages
+- Validated against API implementations using tools like Prism or Dredd
+
+### API Endpoints Overview
+
+| Method | Endpoint | Description | Request Body | Response |
+| :--- | :--- | :--- | :--- | :--- |
+| GET | `/health` | Health check with database connectivity | None | `{status, database}` |
+| POST | `/tasks` | Create a new task | `TaskCreate` | `TaskResponse` (201) |
+| GET | `/tasks` | List all tasks | None | `List[TaskResponse]` |
+| GET | `/tasks/{task_id}` | Get a specific task by ID | None | `TaskResponse` |
+| PUT | `/tasks/{task_id}` | Update an existing task | `TaskUpdate` | `TaskResponse` |
+| DELETE | `/tasks/{task_id}` | Delete a task by ID | None | (204 No Content) |
+
+### API Data Models
+
+#### TaskCreate (Request Body for POST /tasks)
+```json
+{
+  "title": "string (required, 1-255 chars)",
+  "description": "string (optional)",
+  "completed": "boolean (default: false)",
+  "priority": "LOW | MEDIUM | HIGH (default: MEDIUM)"
+}
+```
+
+#### TaskUpdate (Request Body for PUT /tasks/{task_id})
+```json
+{
+  "title": "string (optional, 1-255 chars)",
+  "description": "string (optional)",
+  "completed": "boolean (optional)",
+  "priority": "LOW | MEDIUM | HIGH (optional)"
+}
+```
+
+#### TaskResponse (Response for Task Endpoints)
+```json
+{
+  "id": "integer",
+  "title": "string",
+  "description": "string | null",
+  "completed": "boolean",
+  "priority": "LOW | MEDIUM | HIGH",
+  "created_at": "ISO 8601 timestamp"
+}
+```
+
+### Error Handling
+
+The API returns standardized error responses:
+
+| Status Code | Scenario | Response Format |
+| :--- | :--- | :--- |
+| 200 | Successful GET request | Requested resource(s) |
+| 201 | Successful POST request | Created resource with ID |
+| 204 | Successful DELETE request | Empty body |
+| 400 | Bad request | `{error: "Validation Error", details: [...]}` |
+| 404 | Resource not found | `{error: "Task not found"}` |
+| 422 | Validation error | `{error: "Validation Error", details: [...]}` |
+| 503 | Database unavailable | `{status: "unhealthy", error: "..."}` |
+
+---
+
 ### 3. Run Tests
 
 ```bash
