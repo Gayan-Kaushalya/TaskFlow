@@ -45,6 +45,7 @@ resource "aws_security_group" "alb" {
   lifecycle {
     create_before_destroy = true
   }
+}
 
 # trivy:ignore:AWS-0104
 resource "aws_security_group" "ecs_instances" {
