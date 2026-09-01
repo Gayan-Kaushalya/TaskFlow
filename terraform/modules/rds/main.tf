@@ -27,7 +27,7 @@ resource "random_password" "db_password" {
 resource "aws_db_instance" "postgres" {
   identifier             = "taskflow-postgres"
   engine                 = "postgres"
-  engine_version         = "15.4"
+  engine_version         = "15"
   instance_class         = "db.t4g.micro"
   allocated_storage      = 20
   storage_encrypted      = true
