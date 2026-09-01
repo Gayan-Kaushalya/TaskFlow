@@ -211,7 +211,7 @@ aws ecs update-service \
   --force-new-deployment
 ```
 
-This performs a rolling restart — ECS will launch new tasks that pull the latest secret values and gracefully drain the old tasks.
+This performs a rolling restart - ECS will launch new tasks that pull the latest secret values and gracefully drain the old tasks.
 
 6. Verify the Deployment
 
